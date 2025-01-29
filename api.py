@@ -1,42 +1,29 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import urllib.parse
 
-# Marks data for different names
-marks_data = {
-    "X": 10,
-    "Y": 20
-}
+app = Flask(__name__)
+CORS(app)  # This will allow CORS for all origins
 
-class MyHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # Parse query parameters
-        query_components = urllib.parse.parse_qs(self.path[2:])
-        names = query_components.get('name', [])
-        
-        marks = []
-        
-        # Fetch marks for each name
-        for name in names:
-            marks.append(marks_data.get(name, 0))  # Default 0 if name not found
-        
-        response = {
-            "marks": marks
-        }
+# Load the student data from the JSON file
+with open('students.json', 'r') as f:
+    students_data = json.load(f)
 
-        # Enable CORS
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')  # CORS enabled for all origins
-        self.end_headers()
+@app.route('/api', methods=['GET'])
+def get_student_marks():
+    # Extract the names from the query parameters
+    names = request.args.getlist('name')
+    
+    # Find the marks for the given names
+    result = {"marks": []}
+    for name in names:
+        student = next((s for s in students_data if s['name'] == name), None)
+        if student:
+            result["marks"].append(student["marks"])
+        else:
+            result["marks"].append(None)  # In case the name isn't found
+    
+    return jsonify(result)
 
-        self.wfile.write(json.dumps(response).encode())
-
-def run(server_class=HTTPServer, handler_class=MyHandler, port=5000):
-    server_address = ('', port)
-    httpd = server_class(server_address, handler_class)
-    print(f"Starting server on port {port}...")
-    httpd.serve_forever()
-
-if __name__ == "__main__":
-    run()
+if __name__ == '__main__':
+    app.run(debug=True)
